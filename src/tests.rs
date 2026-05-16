@@ -7,7 +7,7 @@ fn bench_time_based() {
     let b = Bencher::new("bench_time_based")
         .with_warmup_time_ms(50)
         .with_bench_time_ms(100)
-        .with_output_dir(env!("CARGO_MANIFEST_DIR"));
+        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
     b.bench(|| {
         let mut sum = 0u64;
         for i in 0..1000 {
@@ -26,7 +26,7 @@ fn bench_iteration_based() {
         .without_bench_time()
         .with_warmup_iters(100)
         .with_iters(500)
-        .with_output_dir(env!("CARGO_MANIFEST_DIR"));
+        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
     b.bench(|| {
         let v: Vec<i32> = (0..10_000).collect();
         v.len()
@@ -42,7 +42,7 @@ fn bench_combined_limits() {
         .with_warmup_iters(10)
         .with_bench_time_ms(200)
         .with_iters(100)
-        .with_output_dir(env!("CARGO_MANIFEST_DIR"));
+        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
     b.bench(|| {
         let mut s = String::new();
         for i in 0..100 {
@@ -61,7 +61,7 @@ fn bench_fast_operation() {
         .without_bench_time()
         .with_warmup_iters(1000)
         .with_iters(10000)
-        .with_output_dir(env!("CARGO_MANIFEST_DIR"));
+        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
     b.bench(|| std::hint::black_box(42));
 }
 
@@ -73,7 +73,7 @@ fn bench_expensive_with_cap() {
         .with_warmup_time_ms(20)
         .with_bench_time_ms(100)
         .with_iters(50)
-        .with_output_dir(env!("CARGO_MANIFEST_DIR"));
+        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
     b.bench(|| {
         let mut v: Vec<i32> = (0..1000).rev().collect();
         v.sort();
@@ -92,7 +92,7 @@ fn bench_deterministic() {
         .without_bench_time()
         .with_warmup_iters(50)
         .with_iters(200)
-        .with_output_dir(env!("CARGO_MANIFEST_DIR"));
+        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
     b.bench(|| {
         let mut map = HashMap::new();
         for i in 0..1000 {

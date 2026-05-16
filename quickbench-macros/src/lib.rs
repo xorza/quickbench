@@ -210,7 +210,8 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #bench_time_call
                 #warmup_iters_call
                 #iters_call
-                .with_output_dir(env!("CARGO_MANIFEST_DIR"));
+                .with_lock_name(env!("CARGO_PKG_NAME"))
+                .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
             #fn_body
         }
     };
