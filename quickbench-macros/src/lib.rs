@@ -79,8 +79,8 @@ impl Parse for QuickBenchArgs {
 /// # Usage
 ///
 /// ```ignore
-/// use bench::quick_bench;
-/// use bench::Bencher;
+/// use quickbench::quick_bench;
+/// use quickbench::Bencher;
 ///
 /// #[quick_bench]
 /// fn bench_something(b: Bencher) {
@@ -210,7 +210,8 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #bench_time_call
                 #warmup_iters_call
                 #iters_call
-                .with_lock_name(env!("CARGO_PKG_NAME"));
+                .with_lock_name(env!("CARGO_PKG_NAME"))
+                .with_output_dir(env!("CARGO_MANIFEST_DIR"));
             #fn_body
         }
     };

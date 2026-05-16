@@ -16,9 +16,9 @@
 //! or by setting the `QUICKBENCH_OUTPUT_DIR` environment variable at run time (the env var
 //! takes precedence). Results land in `<dir>/bench-results/<name>.txt`.
 
-use std::fs::{OpenOptions, create_dir_all, read_to_string};
+use std::fs::{create_dir_all, read_to_string, write};
 use std::hint::black_box;
-use std::io::Write;
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -39,8 +39,12 @@ mod colors {
     pub const DIM: &str = "\x1b[2m";
 }
 
+fn use_color() -> bool {
+    std::io::stdout().is_terminal()
+}
+
 /// A simple bencher for measuring execution time in tests.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Bencher {
     name: String,
     warmup_time: Option<Duration>,
@@ -65,12 +69,23 @@ pub struct BenchResult {
 
 impl std::fmt::Display for BenchResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use colors::*;
         write!(
             f,
-            "{CYAN}{BOLD}[BENCH]{RESET} {BOLD}{}{RESET}:\n{YELLOW}{:?}{RESET} {DIM}(min: {:?}, max: {:?}, median: {:?}, {} iters){RESET}",
+            "[BENCH] {}:\n{:?} (min: {:?}, max: {:?}, median: {:?}, {} iters)",
             self.name, self.mean, self.min, self.max, self.median, self.iterations
         )
+    }
+}
+
+fn print_result(result: &BenchResult) {
+    if use_color() {
+        use colors::*;
+        println!(
+            "\n{CYAN}{BOLD}[BENCH]{RESET} {BOLD}{}{RESET}:\n{YELLOW}{:?}{RESET} {DIM}(min: {:?}, max: {:?}, median: {:?}, {} iters){RESET}",
+            result.name, result.mean, result.min, result.max, result.median, result.iterations
+        );
+    } else {
+        println!("\n{result}");
     }
 }
 
@@ -165,9 +180,16 @@ impl Bencher {
     where
         F: FnMut() -> R,
     {
-        let mut b = self.clone();
-        b.name = format!("{}/{label}", self.name);
-        b.bench(f)
+        let sub = Bencher {
+            name: format!("{}/{label}", self.name),
+            warmup_time: self.warmup_time,
+            time: self.time,
+            warmup_iters: self.warmup_iters,
+            iters: self.iters,
+            output_dir: self.output_dir.clone(),
+            lock_name: self.lock_name.clone(),
+        };
+        sub.bench(f)
     }
 
     /// Run the benchmark.
@@ -192,12 +214,16 @@ impl Bencher {
         );
 
         #[cfg(debug_assertions)]
-        println!(
-            "\n{}{}⚠️  WARNING:{} DEBUG MODE - benchmarks should be run with --release\n",
-            colors::YELLOW,
-            colors::BOLD,
-            colors::RESET
-        );
+        if use_color() {
+            eprintln!(
+                "\n{}{}⚠️  WARNING:{} DEBUG MODE - benchmarks should be run with --release\n",
+                colors::YELLOW,
+                colors::BOLD,
+                colors::RESET
+            );
+        } else {
+            eprintln!("\nWARNING: DEBUG MODE - benchmarks should be run with --release\n");
+        }
 
         let times = {
             let lock = self
@@ -245,13 +271,11 @@ impl Bencher {
                 times.push(start.elapsed());
             }
 
-            drop(_guard);
-            drop(lock);
             times
         };
 
         let result = compute_stats(self.name, times);
-        println!("\n{result}");
+        print_result(&result);
         if let Some(dir) = resolve_output_dir(self.output_dir.as_deref()) {
             write_result(&result, &dir);
         }
@@ -300,33 +324,11 @@ fn write_result(result: &BenchResult, output_dir: &Path) {
     }
 
     let comparison = read_previous_median_ns(&file_path).map(|prev_ns| {
-        let cur_ns = result.median.as_nanos() as f64;
-        let prev = prev_ns as f64;
-        let diff = cur_ns - prev;
-        let pct = (diff / prev) * 100.0;
-        let sign = if diff >= 0.0 { "+" } else { "" };
-        let (indicator, color) = if pct < -5.0 {
-            ("faster", colors::GREEN)
-        } else if pct > 5.0 {
-            ("SLOWER", colors::RED)
-        } else {
-            ("same", colors::DIM)
-        };
-        let prev_dur = Duration::from_nanos(prev_ns);
-        println!(
-            "  {}vs previous:{} {:?} -> {:?} ({sign}{:.1}%) {}{}{}",
-            colors::DIM,
-            colors::RESET,
-            prev_dur,
-            result.median,
-            pct,
-            color,
-            indicator,
-            colors::RESET
-        );
+        let cmp = compare_to_previous(prev_ns, result.median);
+        print_comparison(&cmp);
         format!(
-            "vs_previous: {:?} -> {:?} ({sign}{:.1}%) {indicator}",
-            prev_dur, result.median, pct
+            "vs_previous: {:?} -> {:?} ({}{:.1}%) {}",
+            cmp.prev, cmp.current, cmp.sign, cmp.pct, cmp.verdict
         )
     });
 
@@ -357,18 +359,8 @@ fn write_result(result: &BenchResult, output_dir: &Path) {
         content.push('\n');
     }
 
-    match OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&file_path)
-    {
-        Ok(mut file) => {
-            if let Err(e) = file.write_all(content.as_bytes()) {
-                eprintln!("Failed to write benchmark result: {e}");
-            }
-        }
-        Err(e) => eprintln!("Failed to open benchmark results file: {e}"),
+    if let Err(e) = write(&file_path, content) {
+        eprintln!("Failed to write benchmark result: {e}");
     }
 }
 
@@ -378,6 +370,63 @@ fn read_previous_median_ns(file_path: &Path) -> Option<u64> {
         .lines()
         .find_map(|line| line.strip_prefix("median_ns:"))
         .and_then(|v| v.trim().parse::<u64>().ok())
+}
+
+struct Comparison {
+    prev: Duration,
+    current: Duration,
+    pct: f64,
+    sign: &'static str,
+    verdict: &'static str,
+}
+
+fn compare_to_previous(prev_ns: u64, current: Duration) -> Comparison {
+    let cur_ns = current.as_nanos() as f64;
+    let prev_f = prev_ns as f64;
+    let diff = cur_ns - prev_f;
+    let pct = (diff / prev_f) * 100.0;
+    let sign = if diff >= 0.0 { "+" } else { "" };
+    let verdict = if pct < -5.0 {
+        "faster"
+    } else if pct > 5.0 {
+        "SLOWER"
+    } else {
+        "same"
+    };
+    Comparison {
+        prev: Duration::from_nanos(prev_ns),
+        current,
+        pct,
+        sign,
+        verdict,
+    }
+}
+
+fn print_comparison(c: &Comparison) {
+    if use_color() {
+        let color = match c.verdict {
+            "faster" => colors::GREEN,
+            "SLOWER" => colors::RED,
+            _ => colors::DIM,
+        };
+        println!(
+            "  {}vs previous:{} {:?} -> {:?} ({}{:.1}%) {}{}{}",
+            colors::DIM,
+            colors::RESET,
+            c.prev,
+            c.current,
+            c.sign,
+            c.pct,
+            color,
+            c.verdict,
+            colors::RESET
+        );
+    } else {
+        println!(
+            "  vs previous: {:?} -> {:?} ({}{:.1}%) {}",
+            c.prev, c.current, c.sign, c.pct, c.verdict
+        );
+    }
 }
 
 #[cfg(test)]

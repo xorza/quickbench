@@ -1,103 +1,84 @@
-use crate::Bencher;
+use std::fs;
+use std::time::Duration;
 
-// Time-based benchmark: runs for specified duration
-#[test]
-#[ignore]
-fn bench_time_based() {
-    let b = Bencher::new("bench_time_based")
-        .with_warmup_time_ms(50)
-        .with_bench_time_ms(100)
-        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
-    b.bench(|| {
-        let mut sum = 0u64;
-        for i in 0..1000 {
-            sum += i;
-        }
-        sum
-    });
-}
+use crate::{Bencher, compare_to_previous, read_previous_median_ns};
 
-// Iteration-based benchmark: runs exact number of iterations
 #[test]
-#[ignore]
-fn bench_iteration_based() {
-    let b = Bencher::new("bench_iteration_based")
+fn iter_cap_stops_at_requested_count() {
+    let mut count = 0u64;
+    let result = Bencher::new("iter_cap")
         .without_warmup_time()
         .without_bench_time()
-        .with_warmup_iters(100)
-        .with_iters(500)
-        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
-    b.bench(|| {
-        let v: Vec<i32> = (0..10_000).collect();
-        v.len()
-    });
-}
-
-// Combined limits: stops at whichever comes first
-#[test]
-#[ignore]
-fn bench_combined_limits() {
-    let b = Bencher::new("bench_combined_limits")
-        .with_warmup_time_ms(50)
         .with_warmup_iters(10)
-        .with_bench_time_ms(200)
-        .with_iters(100)
-        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
-    b.bench(|| {
-        let mut s = String::new();
-        for i in 0..100 {
-            s.push_str(&i.to_string());
-        }
-        s
-    });
-}
-
-// Fast operation with iteration limit to prevent excessive runs
-#[test]
-#[ignore]
-fn bench_fast_operation() {
-    let b = Bencher::new("bench_fast_operation")
-        .without_warmup_time()
-        .without_bench_time()
-        .with_warmup_iters(1000)
-        .with_iters(10000)
-        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
-    b.bench(|| std::hint::black_box(42));
-}
-
-// Time-limited with iteration cap for expensive operations
-#[test]
-#[ignore]
-fn bench_expensive_with_cap() {
-    let b = Bencher::new("bench_expensive_with_cap")
-        .with_warmup_time_ms(20)
-        .with_bench_time_ms(100)
         .with_iters(50)
-        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
-    b.bench(|| {
-        let mut v: Vec<i32> = (0..1000).rev().collect();
-        v.sort();
-        v
-    });
+        .without_lock()
+        .bench(|| count += 1);
+    assert_eq!(result.iterations, 50, "should stop at iters cap");
+    assert_eq!(count, 10 + 50, "warmup + measured iterations");
 }
 
-// Pure iteration-based for deterministic benchmarks
 #[test]
-#[ignore]
-fn bench_deterministic() {
-    use std::collections::HashMap;
+fn time_cap_stops_within_budget() {
+    let result = Bencher::new("time_cap")
+        .with_warmup_time_ms(5)
+        .with_bench_time_ms(20)
+        .without_lock()
+        .bench(|| std::hint::black_box(1u64 + 1));
+    assert!(result.total <= Duration::from_millis(200), "ran far over budget: {:?}", result.total);
+    assert!(result.iterations > 0);
+}
 
-    let b = Bencher::new("bench_deterministic")
+#[test]
+fn read_previous_median_ns_parses_fixture() {
+    let dir = std::env::temp_dir().join("quickbench-test-read");
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("fixture.txt");
+    fs::write(
+        &path,
+        "name: x\nmean: 1us\nmedian: 1us\nmedian_ns: 1234\n",
+    )
+    .unwrap();
+    assert_eq!(read_previous_median_ns(&path), Some(1234));
+    let _ = fs::remove_file(&path);
+}
+
+#[test]
+fn read_previous_median_ns_returns_none_for_missing_file() {
+    let path = std::env::temp_dir().join("quickbench-test-missing-xyz");
+    let _ = fs::remove_file(&path);
+    assert_eq!(read_previous_median_ns(&path), None);
+}
+
+#[test]
+fn compare_to_previous_classifies_verdict() {
+    let prev_ns = 100;
+    let same = compare_to_previous(prev_ns, Duration::from_nanos(102));
+    assert_eq!(same.verdict, "same");
+
+    let faster = compare_to_previous(prev_ns, Duration::from_nanos(80));
+    assert_eq!(faster.verdict, "faster");
+    assert!(faster.pct < 0.0);
+
+    let slower = compare_to_previous(prev_ns, Duration::from_nanos(120));
+    assert_eq!(slower.verdict, "SLOWER");
+    assert!(slower.pct > 0.0);
+}
+
+#[test]
+fn bench_persists_results_when_output_dir_set() {
+    let dir = std::env::temp_dir().join("quickbench-test-persist");
+    let _ = fs::remove_dir_all(&dir);
+    Bencher::new("persist_check")
         .without_warmup_time()
         .without_bench_time()
-        .with_warmup_iters(50)
-        .with_iters(200)
-        .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
-    b.bench(|| {
-        let mut map = HashMap::new();
-        for i in 0..1000 {
-            map.insert(i, i * 2);
-        }
-        map
-    });
+        .with_warmup_iters(1)
+        .with_iters(3)
+        .with_output_dir(&dir)
+        .without_lock()
+        .bench(|| ());
+    let file = dir.join("bench-results").join("persist_check.txt");
+    let content = fs::read_to_string(&file).expect("result file should exist");
+    assert!(content.contains("name: persist_check"));
+    assert!(content.contains("median_ns:"));
+    let _ = fs::remove_dir_all(&dir);
 }

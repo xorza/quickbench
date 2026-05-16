@@ -25,12 +25,13 @@ There is no separate `cargo bench` target — benchmarks are `#[test] #[ignore]`
 
 ## Architecture notes
 
-- **Cross-process serialization** uses `named_lock` with a single global name `quick-bench-lock` (see `BENCH_LOCK_NAME` in `src/lib.rs`). The lock is held for the whole `bench()` call including file I/O, so concurrent `cargo test` invocations on the same machine serialize automatically. Don't introduce a second lock or scope it more narrowly without thinking through the parallel-`cargo test` case.
+- **Cross-process serialization** uses `named_lock`. The lock name is scoped per-crate via `env!("CARGO_PKG_NAME")` (set by the macro) — unrelated projects don't contend. The lock is held only across warmup + measurement; printing and file I/O happen after release. Don't introduce a second lock or scope it more narrowly without thinking through the parallel-`cargo test` case.
 - **Stop conditions**: warmup and measurement each take an optional `Duration` and an optional iteration cap; the loop exits on whichever fires first. At least one of the two must be set per phase (asserted at runtime). The macro emits `.without_warmup_time()` / `.without_bench_time()` only when the user specified iters but no time, to disable the default 1s/5s limits.
-- **Result comparison**: when `output_dir` is set (always, via the macro), `compute_result` reads the previous `median:` line from the per-bench file, prints a coloured diff (>5% threshold for faster/SLOWER), and overwrites the file. `parse_duration` handles `ns`/`us`/`µs`/`ms`/`s` suffixes — keep it in sync with `Debug` formatting of `Duration` if Rust ever changes that.
-- **Labeled variants**: `bench_labeled(&self, ...)` clones config and runs a sub-bench named `"{parent}/{label}"`. The `/` becomes a real path separator in the output file, so `compute_result` calls `create_dir_all` on the parent before writing.
+- **Result comparison**: when `output_dir` is set (always, via the macro), `write_result` calls `read_previous_median_ns` to parse the `median_ns:` line from the per-bench file, runs `compare_to_previous` to classify the diff (>5% threshold for faster/SLOWER), prints via `print_comparison`, then overwrites the file.
+- **Labeled variants**: `bench_labeled(&self, ...)` constructs a sub-`Bencher` named `"{parent}/{label}"` (without `Clone`). The `/` becomes a real path separator in the output file, so `write_result` calls `create_dir_all` on the parent before writing. Each label re-acquires the cross-process lock — labels are NOT atomic with respect to other processes.
+- **Output rendering**: `BenchResult: Display` is plain text. ANSI-coloured rendering goes through `print_result` / `print_comparison`, which check `stdout().is_terminal()` and fall back to plain text when redirected.
 
 ## Conventions specific to this repo
 
 - Edition 2024; macro relies on let-chains (`if let ... && cond`) which need that edition.
-- Public surface is intentionally tiny: `Bencher`, `BenchResult`, `quick_bench`. The colors module and `parse_duration` are private — keep them that way.
+- Public surface is intentionally tiny: `Bencher`, `BenchResult`, `quick_bench`. The `colors` module, `print_result`, `compare_to_previous`, and `read_previous_median_ns` are private — keep them that way.
