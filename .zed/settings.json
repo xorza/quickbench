@@ -4,7 +4,7 @@
       "initialization_options": {
         "runnables": {
           "extraArgs": ["--release"],
-          "extraTestBinaryArgs": ["--nocapture", "--show-output"]
+          "extraTestBinaryArgs": ["--ignored", "--nocapture", "--show-output"]
         }
       }
     }

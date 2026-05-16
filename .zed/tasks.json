@@ -4,5 +4,20 @@
     "command": "cargo",
     "args": ["run", "--release", "--example", "$ZED_STEM"],
     "tags": ["rust-main"]
+  },
+  {
+    "label": "cargo test --release $ZED_SYMBOL",
+    "command": "cargo",
+    "args": [
+      "test",
+      "-p", "$ZED_CUSTOM_RUST_PACKAGE",
+      "--release",
+      "$ZED_SYMBOL",
+      "--",
+      "--ignored",
+      "--nocapture",
+      "--show-output"
+    ],
+    "tags": ["rust-test"]
   }
 ]
