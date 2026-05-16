@@ -1,0 +1,8 @@
+[
+  {
+    "label": "cargo run --release --example $ZED_STEM",
+    "command": "cargo",
+    "args": ["run", "--release", "--example", "$ZED_STEM"],
+    "tags": ["rust-main"]
+  }
+]
