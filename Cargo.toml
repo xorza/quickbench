@@ -1,6 +1,6 @@
 [package]
 name = "quickbench"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A tiny no-frills micro-benchmark harness. Benchmarks are #[test] #[ignore] functions runnable via cargo test."
 license = "MIT OR Apache-2.0"
@@ -11,5 +11,5 @@ categories = ["development-tools::testing", "development-tools::profiling"]
 exclude = ["CLAUDE.md", "REVIEW.md", ".zed/", "bench-results/", "target/"]
 
 [dependencies]
-quickbench-macros = { version = "0.1.0", path = "quickbench-macros" }
+quickbench-macros = { version = "0.1.1", path = "quickbench-macros" }
 named-lock = "0.4"

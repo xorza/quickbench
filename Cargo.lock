@@ -82,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "quickbench"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "named-lock",
  "quickbench-macros",
@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "quickbench-macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "quote",
  "syn",
