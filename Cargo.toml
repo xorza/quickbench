@@ -1,0 +1,8 @@
+[package]
+name = "quickbench"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+quickbench-macros = { path = "quickbench-macros" }
+named-lock = "0.4"
