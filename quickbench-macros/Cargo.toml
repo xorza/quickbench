@@ -5,7 +5,6 @@ edition = "2024"
 description = "Proc-macro crate for quickbench. Provides #[quick_bench]."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/xxorza/quickbench"
-documentation = "https://docs.rs/quickbench-macros"
 keywords = ["benchmark", "macro", "proc-macro"]
 categories = ["development-tools::testing"]
 

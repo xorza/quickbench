@@ -5,7 +5,6 @@ edition = "2024"
 description = "A tiny no-frills micro-benchmark harness. Benchmarks are #[test] #[ignore] functions runnable via cargo test."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/xxorza/quickbench"
-documentation = "https://docs.rs/quickbench"
 readme = "README.md"
 keywords = ["benchmark", "bench", "performance", "testing"]
 categories = ["development-tools::testing", "development-tools::profiling"]
