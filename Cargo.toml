@@ -2,7 +2,15 @@
 name = "quickbench"
 version = "0.1.0"
 edition = "2024"
+description = "A tiny no-frills micro-benchmark harness. Benchmarks are #[test] #[ignore] functions runnable via cargo test."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xxorza/quickbench"
+documentation = "https://docs.rs/quickbench"
+readme = "README.md"
+keywords = ["benchmark", "bench", "performance", "testing"]
+categories = ["development-tools::testing", "development-tools::profiling"]
+exclude = ["CLAUDE.md", "REVIEW.md", ".zed/", "bench-results/", "target/"]
 
 [dependencies]
-quickbench-macros = { path = "quickbench-macros" }
+quickbench-macros = { version = "0.1.0", path = "quickbench-macros" }
 named-lock = "0.4"
