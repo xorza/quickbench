@@ -3,21 +3,22 @@
     "label": "cargo run --release --example $ZED_STEM",
     "command": "cargo",
     "args": ["run", "--release", "--example", "$ZED_STEM"],
-    "tags": ["rust-main"]
+    "tags": ["rust-main"],
   },
   {
     "label": "cargo test --release $ZED_SYMBOL",
     "command": "cargo",
     "args": [
       "test",
-      "-p", "$ZED_CUSTOM_RUST_PACKAGE",
+      "-p",
+      "$ZED_CUSTOM_RUST_PACKAGE",
       "--release",
       "$ZED_SYMBOL",
       "--",
       "--ignored",
       "--nocapture",
-      "--show-output"
+      "--show-output",
     ],
-    "tags": ["rust-test"]
-  }
+    "tags": ["rust-test"],
+  },
 ]
