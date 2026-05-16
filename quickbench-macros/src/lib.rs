@@ -165,7 +165,7 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let ignore_attr = if args.ignore {
-        quote! { #[ignore] }
+        quote! { #[cfg_attr(test, ignore)] }
     } else {
         quote! {}
     };
@@ -200,7 +200,7 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     });
 
     let expanded = quote! {
-        #[test]
+        #[cfg_attr(test, test)]
         #ignore_attr
         #fn_vis fn #fn_name() {
             let #param_name: #param_ty = ::quickbench::Bencher::new(#fn_name_str)
@@ -210,8 +210,7 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #bench_time_call
                 #warmup_iters_call
                 #iters_call
-                .with_lock_name(env!("CARGO_PKG_NAME"))
-                .with_output_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/target"));
+                .with_lock_name(env!("CARGO_PKG_NAME"));
             #fn_body
         }
     };

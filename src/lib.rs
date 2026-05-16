@@ -9,6 +9,12 @@
 //! lock name is scoped per-crate (the `#[quick_bench]` macro passes `CARGO_PKG_NAME`), so
 //! unrelated projects don't contend with each other. Override with [`Bencher::with_lock_name`]
 //! or disable with [`Bencher::without_lock`].
+//!
+//! ## Result files
+//!
+//! By default no files are written. Opt in either by calling [`Bencher::with_output_dir`]
+//! or by setting the `QUICKBENCH_OUTPUT_DIR` environment variable at run time (the env var
+//! takes precedence). Results land in `<dir>/bench-results/<name>.txt`.
 
 use std::fs::{OpenOptions, create_dir_all, read_to_string};
 use std::hint::black_box;
@@ -21,6 +27,7 @@ use named_lock::NamedLock;
 pub use quickbench_macros::quick_bench;
 
 const DEFAULT_LOCK_NAME: &str = "quickbench-default";
+const OUTPUT_DIR_ENV: &str = "QUICKBENCH_OUTPUT_DIR";
 
 mod colors {
     pub const RESET: &str = "\x1b[0m";
@@ -245,11 +252,21 @@ impl Bencher {
 
         let result = compute_stats(self.name, times);
         println!("\n{result}");
-        if let Some(dir) = self.output_dir.as_deref() {
-            write_result(&result, dir);
+        if let Some(dir) = resolve_output_dir(self.output_dir.as_deref()) {
+            write_result(&result, &dir);
         }
         result
     }
+}
+
+/// Env var overrides the builder; otherwise use whatever the builder set (or `None`).
+fn resolve_output_dir(builder_dir: Option<&Path>) -> Option<PathBuf> {
+    if let Ok(env_dir) = std::env::var(OUTPUT_DIR_ENV)
+        && !env_dir.is_empty()
+    {
+        return Some(PathBuf::from(env_dir));
+    }
+    builder_dir.map(PathBuf::from)
 }
 
 fn compute_stats(name: String, mut times: Vec<Duration>) -> BenchResult {
