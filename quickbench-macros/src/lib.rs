@@ -141,10 +141,10 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into();
     }
 
-    // Extract the parameter name
-    let param_name = match &input.sig.inputs[0] {
+    // Extract the parameter name and type
+    let (param_name, param_ty) = match &input.sig.inputs[0] {
         FnArg::Typed(pat_type) => match &*pat_type.pat {
-            Pat::Ident(pat_ident) => &pat_ident.ident,
+            Pat::Ident(pat_ident) => (&pat_ident.ident, &*pat_type.ty),
             _ => {
                 return syn::Error::new_spanned(
                     &pat_type.pat,
@@ -203,7 +203,7 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[test]
         #ignore_attr
         #fn_vis fn #fn_name() {
-            let #param_name = ::quickbench::Bencher::new(#fn_name_str)
+            let #param_name: #param_ty = ::quickbench::Bencher::new(#fn_name_str)
                 #disable_warmup_time
                 #disable_bench_time
                 #warmup_time_call
