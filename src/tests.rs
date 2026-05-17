@@ -24,7 +24,11 @@ fn time_cap_stops_within_budget() {
         .with_bench_time_ms(20)
         .without_lock()
         .bench(|| std::hint::black_box(1u64 + 1));
-    assert!(result.total <= Duration::from_millis(200), "ran far over budget: {:?}", result.total);
+    assert!(
+        result.total <= Duration::from_millis(200),
+        "ran far over budget: {:?}",
+        result.total
+    );
     assert!(result.iterations > 0);
 }
 
@@ -33,11 +37,7 @@ fn read_previous_median_ns_parses_fixture() {
     let dir = std::env::temp_dir().join("quickbench-test-read");
     fs::create_dir_all(&dir).unwrap();
     let path = dir.join("fixture.txt");
-    fs::write(
-        &path,
-        "name: x\nmean: 1us\nmedian: 1us\nmedian_ns: 1234\n",
-    )
-    .unwrap();
+    fs::write(&path, "name: x\nmean: 1us\nmedian: 1us\nmedian_ns: 1234\n").unwrap();
     assert_eq!(read_previous_median_ns(&path), Some(1234));
     let _ = fs::remove_file(&path);
 }
