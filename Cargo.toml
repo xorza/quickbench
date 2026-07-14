@@ -8,7 +8,7 @@ repository = "https://github.com/xxorza/quickbench"
 readme = "README.md"
 keywords = ["benchmark", "bench", "performance", "testing"]
 categories = ["development-tools::testing", "development-tools::profiling"]
-exclude = ["CLAUDE.md", "REVIEW.md", ".zed/", "bench-results/", "target/"]
+exclude = ["AGENTS.md", "CLAUDE.md", "REVIEW.md", ".zed/", "bench-results/", "target/"]
 
 [dependencies]
 quickbench-macros = { version = "0.1.1", path = "quickbench-macros" }
