@@ -9,6 +9,9 @@ keywords = ["benchmark", "macro", "proc-macro"]
 categories = ["development-tools::testing"]
 exclude = ["AGENTS.md", "CLAUDE.md"]
 
+[lints.clippy]
+items_after_test_module = "deny"
+
 [lib]
 proc-macro = true
 

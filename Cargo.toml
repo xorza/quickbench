@@ -10,6 +10,9 @@ keywords = ["benchmark", "bench", "performance", "testing"]
 categories = ["development-tools::testing", "development-tools::profiling"]
 exclude = ["AGENTS.md", "CLAUDE.md", "REVIEW.md", ".zed/", "bench-results/", "target/"]
 
+[lints.clippy]
+items_after_test_module = "deny"
+
 [dependencies]
 quickbench-macros = { version = "0.1.1", path = "quickbench-macros" }
 named-lock = "0.4"
