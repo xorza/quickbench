@@ -30,13 +30,13 @@ const DEFAULT_LOCK_NAME: &str = "quickbench-default";
 const OUTPUT_DIR_ENV: &str = "QUICKBENCH_OUTPUT_DIR";
 
 mod colors {
-    pub const RESET: &str = "\x1b[0m";
-    pub const BOLD: &str = "\x1b[1m";
-    pub const CYAN: &str = "\x1b[36m";
-    pub const YELLOW: &str = "\x1b[33m";
-    pub const GREEN: &str = "\x1b[32m";
-    pub const RED: &str = "\x1b[31m";
-    pub const DIM: &str = "\x1b[2m";
+    pub(crate) const RESET: &str = "\x1b[0m";
+    pub(crate) const BOLD: &str = "\x1b[1m";
+    pub(crate) const CYAN: &str = "\x1b[36m";
+    pub(crate) const YELLOW: &str = "\x1b[33m";
+    pub(crate) const GREEN: &str = "\x1b[32m";
+    pub(crate) const RED: &str = "\x1b[31m";
+    pub(crate) const DIM: &str = "\x1b[2m";
 }
 
 fn use_color() -> bool {
