@@ -30,13 +30,13 @@ const DEFAULT_LOCK_NAME: &str = "quickbench-default";
 const OUTPUT_DIR_ENV: &str = "QUICKBENCH_OUTPUT_DIR";
 
 mod colors {
-    pub(crate) const RESET: &str = "\x1b[0m";
-    pub(crate) const BOLD: &str = "\x1b[1m";
-    pub(crate) const CYAN: &str = "\x1b[36m";
-    pub(crate) const YELLOW: &str = "\x1b[33m";
-    pub(crate) const GREEN: &str = "\x1b[32m";
-    pub(crate) const RED: &str = "\x1b[31m";
-    pub(crate) const DIM: &str = "\x1b[2m";
+    pub(super) const RESET: &str = "\x1b[0m";
+    pub(super) const BOLD: &str = "\x1b[1m";
+    pub(super) const CYAN: &str = "\x1b[36m";
+    pub(super) const YELLOW: &str = "\x1b[33m";
+    pub(super) const GREEN: &str = "\x1b[32m";
+    pub(super) const RED: &str = "\x1b[31m";
+    pub(super) const DIM: &str = "\x1b[2m";
 }
 
 fn use_color() -> bool {
@@ -58,13 +58,13 @@ pub struct Bencher {
 /// Statistics from a benchmark run.
 #[derive(Debug)]
 pub struct BenchResult {
-    pub name: String,
-    pub iterations: usize,
+    name: String,
+    iterations: usize,
     pub total: Duration,
-    pub mean: Duration,
-    pub min: Duration,
-    pub max: Duration,
-    pub median: Duration,
+    mean: Duration,
+    min: Duration,
+    max: Duration,
+    median: Duration,
 }
 
 impl std::fmt::Display for BenchResult {
@@ -165,13 +165,6 @@ impl Bencher {
     #[must_use]
     pub fn with_lock_name(mut self, name: impl Into<String>) -> Self {
         self.lock_name = Some(name.into());
-        self
-    }
-
-    /// Disable cross-process serialization entirely.
-    #[must_use]
-    pub fn without_lock(mut self) -> Self {
-        self.lock_name = None;
         self
     }
 
@@ -426,6 +419,21 @@ fn print_comparison(c: &Comparison) {
             "  vs previous: {:?} -> {:?} ({}{:.1}%) {}",
             c.prev, c.current, c.sign, c.pct, c.verdict
         );
+    }
+}
+
+#[cfg(test)]
+mod internals {
+    use crate::Bencher;
+
+    impl Bencher {
+        /// Disable cross-process serialization entirely, so the unit tests
+        /// don't contend on the shared named lock with a parallel bench run.
+        #[must_use]
+        pub(super) fn without_lock(mut self) -> Self {
+            self.lock_name = None;
+            self
+        }
     }
 }
 
