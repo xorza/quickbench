@@ -8,7 +8,7 @@
 //! Benchmarks are serialized across processes using a named system lock. By default the
 //! lock name is scoped per-crate (the `#[quick_bench]` macro passes `CARGO_PKG_NAME`), so
 //! unrelated projects don't contend with each other. Override with [`Bencher::with_lock_name`]
-//! or disable with [`Bencher::without_lock`].
+//! or disable with `Bencher::without_lock`.
 //!
 //! ## Result files
 //!
