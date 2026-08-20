@@ -17,6 +17,11 @@ unreachable_pub = "deny"
 [lints.clippy]
 items_after_test_module = "deny"
 
+[lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"
+redundant_explicit_links = "deny"
+
 [dependencies]
 quickbench-macros = { version = "0.1.1", path = "quickbench-macros" }
 named-lock = "0.4"
