@@ -165,7 +165,7 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let ignore_attr = if args.ignore {
-        quote! { #[cfg_attr(test, ignore)] }
+        quote! { #[cfg_attr(test, ignore = "a quickbench bench; run it with --ignored")] }
     } else {
         quote! {}
     };
