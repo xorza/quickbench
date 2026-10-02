@@ -14,7 +14,7 @@ struct QuickBenchArgs {
 }
 
 impl Parse for QuickBenchArgs {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         if input.is_empty() {
             return Ok(QuickBenchArgs {
                 warmup_time_ms: None,

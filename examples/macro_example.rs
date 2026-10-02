@@ -4,7 +4,10 @@
 //! attributes are inert, so the generated functions can simply be called from `main`.
 //!
 //! Run with:
-//!   cargo run --release --example macro_example
+//!
+//! ```text
+//! cargo run --release --example macro_example
+//! ```
 
 use quickbench::{Bencher, quick_bench};
 
@@ -33,6 +36,10 @@ fn bench_sort_variants(b: Bencher) {
 
     b.bench_labeled("stable", || {
         let mut v = input.clone();
+        #[expect(
+            clippy::stable_sort_primitive,
+            reason = "the stable sort is the variant this bench measures"
+        )]
         v.sort();
         v
     });
