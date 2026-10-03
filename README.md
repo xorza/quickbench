@@ -60,13 +60,17 @@ Output:
 10.625µs (min: 9.917µs, max: 69.084µs, median: 10.5µs, 93185 iters)
 
 [BENCH] bench_sort_variants/unstable:
-9.083µs (min: 8.875µs, max: 31.250µs, median: 9.000µs, 110044 iters)
-   ↳ 14.3% faster than previous run
+9.083µs (min: 8.875µs, max: 31.25µs, median: 9µs, 110044 iters)
+  vs previous: 10.5µs -> 9µs (-14.3%) faster
 ```
 
-Results are persisted to `bench-results/<bench_name>.txt` in the consuming
-crate. The next run compares against that file and prints a diff (threshold
-±5%).
+A `#[quick_bench]` function writes its result to
+`bench-results/<bench_name>.txt` in the consuming crate. A plain `Bencher`
+writes no file unless `Bencher::with_output_dir` names a directory. In both
+cases `QUICKBENCH_OUTPUT_DIR`, set at run time, takes precedence. The next run
+compares its median against that file. A change inside ±5% reports as
+`same`: one run's median moves by a few percent between runs, and a single
+previous median cannot resolve less.
 
 ## The `#[quick_bench]` macro
 

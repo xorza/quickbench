@@ -1,7 +1,10 @@
 //! Compare two sort implementations using `Bencher::bench_labeled`.
 //!
 //! Run with:
-//!   cargo run --release --example sort_compare
+//!
+//! ```text
+//! cargo run --release --example sort_compare
+//! ```
 //!
 //! To persist results for diff-vs-previous, either chain `.with_output_dir("...")`
 //! or set `QUICKBENCH_OUTPUT_DIR=./target` before running.
@@ -19,6 +22,10 @@ fn main() {
 
     b.bench_labeled("std_sort", || {
         let mut v = make_input();
+        #[expect(
+            clippy::stable_sort_primitive,
+            reason = "the stable sort is the variant this bench measures"
+        )]
         v.sort();
         v
     });
