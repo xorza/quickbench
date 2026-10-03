@@ -1,77 +1,64 @@
 //! Proc-macros for bench crate.
 
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{FnArg, ItemFn, LitInt, Pat, Token, parse::Parse, parse::ParseStream, parse_macro_input};
+use syn::meta::{self, ParseNestedMeta};
+use syn::parse::Parser;
+use syn::{FnArg, ItemFn, LitBool, LitInt, Pat};
 
-/// Arguments for the quick_bench attribute.
+/// The `#[quick_bench(..)]` arguments. A limit left unset keeps the `Bencher` default.
+#[derive(Debug, Default, PartialEq, Eq)]
 struct QuickBenchArgs {
     warmup_time_ms: Option<u64>,
     bench_time_ms: Option<u64>,
     warmup_iters: Option<u64>,
     iters: Option<u64>,
-    ignore: bool,
+    ignore: Option<bool>,
 }
 
-impl Parse for QuickBenchArgs {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        if input.is_empty() {
-            return Ok(QuickBenchArgs {
-                warmup_time_ms: None,
-                bench_time_ms: None,
-                warmup_iters: None,
-                iters: None,
-                ignore: true,
-            });
-        }
-
-        let mut warmup_time_ms = None;
-        let mut bench_time_ms = None;
-        let mut warmup_iters = None;
-        let mut iters = None;
-        let mut ignore = true;
-
-        while !input.is_empty() {
-            let ident: syn::Ident = input.parse()?;
-            input.parse::<Token![=]>()?;
-
-            if ident == "warmup_time_ms" {
-                let lit: LitInt = input.parse()?;
-                warmup_time_ms = Some(lit.base10_parse()?);
-            } else if ident == "bench_time_ms" {
-                let lit: LitInt = input.parse()?;
-                bench_time_ms = Some(lit.base10_parse()?);
-            } else if ident == "warmup_iters" {
-                let lit: LitInt = input.parse()?;
-                warmup_iters = Some(lit.base10_parse()?);
-            } else if ident == "iters" {
-                let lit: LitInt = input.parse()?;
-                iters = Some(lit.base10_parse()?);
-            } else if ident == "ignore" {
-                let lit: syn::LitBool = input.parse()?;
-                ignore = lit.value();
-            } else {
-                return Err(syn::Error::new_spanned(
-                    &ident,
-                    format!(
-                        "unknown quick_bench attribute: `{ident}` (expected: warmup_time_ms, bench_time_ms, warmup_iters, iters, ignore)"
-                    ),
-                ));
-            }
-
-            if input.peek(Token![,]) {
-                input.parse::<Token![,]>()?;
-            }
-        }
-
-        Ok(QuickBenchArgs {
-            warmup_time_ms,
-            bench_time_ms,
-            warmup_iters,
-            iters,
-            ignore,
-        })
+impl QuickBenchArgs {
+    /// Parse `key = value` pairs, comma-separated. A key it does not know, or one given twice,
+    /// is an error rather than a setting silently dropped.
+    fn parse(attr: TokenStream2) -> syn::Result<Self> {
+        let mut args = Self::default();
+        meta::parser(|meta| args.set(&meta)).parse2(attr)?;
+        Ok(args)
     }
+
+    fn set(&mut self, meta: &ParseNestedMeta<'_>) -> syn::Result<()> {
+        let key = meta.path.require_ident()?.to_string();
+        let fresh = match key.as_str() {
+            "warmup_time_ms" => fill(&mut self.warmup_time_ms, int(meta)?),
+            "bench_time_ms" => fill(&mut self.bench_time_ms, int(meta)?),
+            "warmup_iters" => fill(&mut self.warmup_iters, int(meta)?),
+            "iters" => fill(&mut self.iters, int(meta)?),
+            "ignore" => fill(&mut self.ignore, meta.value()?.parse::<LitBool>()?.value()),
+            _ => {
+                return Err(meta.error(format!(
+                    "unknown quick_bench attribute: `{key}` (expected: warmup_time_ms, bench_time_ms, warmup_iters, iters, ignore)"
+                )));
+            }
+        };
+        if fresh {
+            Ok(())
+        } else {
+            Err(meta.error(format!("quick_bench attribute `{key}` is given twice")))
+        }
+    }
+}
+
+/// Store `value` in an empty `slot`. False when the slot already held one.
+fn fill<T>(slot: &mut Option<T>, value: T) -> bool {
+    if slot.is_some() {
+        return false;
+    }
+    *slot = Some(value);
+    true
+}
+
+fn int(meta: &ParseNestedMeta<'_>) -> syn::Result<u64> {
+    meta.value()?.parse::<LitInt>()?.base10_parse()
 }
 
 /// Attribute macro for creating benchmark tests.
@@ -123,83 +110,76 @@ impl Parse for QuickBenchArgs {
 /// ```
 #[proc_macro_attribute]
 pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(attr as QuickBenchArgs);
-    let input = parse_macro_input!(item as ItemFn);
+    expand(attr.into(), item.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// The `#[test]` function that `#[quick_bench(attr)]` makes of `item`.
+fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
+    let args = QuickBenchArgs::parse(attr)?;
+    let input = syn::parse2::<ItemFn>(item)?;
 
     let fn_name = &input.sig.ident;
     let fn_name_str = fn_name.to_string();
     let fn_body = &input.block;
     let fn_vis = &input.vis;
 
-    // Check that function has exactly one parameter
     if input.sig.inputs.len() != 1 {
-        return syn::Error::new_spanned(
+        return Err(syn::Error::new_spanned(
             &input.sig.inputs,
             "quick_bench function must have exactly one parameter: `b: Bencher`",
-        )
-        .to_compile_error()
-        .into();
+        ));
     }
-
-    // Extract the parameter name and type
     let (param_name, param_ty) = match &input.sig.inputs[0] {
         FnArg::Typed(pat_type) => match &*pat_type.pat {
             Pat::Ident(pat_ident) => (&pat_ident.ident, &*pat_type.ty),
             _ => {
-                return syn::Error::new_spanned(
+                return Err(syn::Error::new_spanned(
                     &pat_type.pat,
                     "parameter must be a simple identifier",
-                )
-                .to_compile_error()
-                .into();
+                ));
             }
         },
         FnArg::Receiver(_) => {
-            return syn::Error::new_spanned(
+            return Err(syn::Error::new_spanned(
                 &input.sig.inputs[0],
                 "quick_bench function cannot have self parameter",
-            )
-            .to_compile_error()
-            .into();
+            ));
         }
     };
 
-    let ignore_attr = if args.ignore {
+    let ignore_attr = if args.ignore.unwrap_or(true) {
         quote! { #[cfg_attr(test, ignore = "a quickbench bench; run it with --ignored")] }
     } else {
         quote! {}
     };
 
-    // When only iters are specified, disable time limits
+    // A phase given only an iteration count runs exactly that many: the default time limit
+    // would otherwise still stop it first.
     let disable_warmup_time = if args.warmup_iters.is_some() && args.warmup_time_ms.is_none() {
         quote! { .without_warmup_time() }
     } else {
         quote! {}
     };
-
     let disable_bench_time = if args.iters.is_some() && args.bench_time_ms.is_none() {
         quote! { .without_bench_time() }
     } else {
         quote! {}
     };
 
-    let warmup_time_call = args.warmup_time_ms.map(|ms| {
-        quote! { .with_warmup_time_ms(#ms) }
-    });
+    let warmup_time_call = args
+        .warmup_time_ms
+        .map(|ms| quote! { .with_warmup_time_ms(#ms) });
+    let bench_time_call = args
+        .bench_time_ms
+        .map(|ms| quote! { .with_bench_time_ms(#ms) });
+    let warmup_iters_call = args
+        .warmup_iters
+        .map(|iters| quote! { .with_warmup_iters(#iters) });
+    let iters_call = args.iters.map(|iters| quote! { .with_iters(#iters) });
 
-    let bench_time_call = args.bench_time_ms.map(|ms| {
-        quote! { .with_bench_time_ms(#ms) }
-    });
-
-    let warmup_iters_call = args.warmup_iters.map(|iters| {
-        quote! { .with_warmup_iters(#iters) }
-    });
-
-    let iters_call = args.iters.map(|iters| {
-        quote! { .with_iters(#iters) }
-    });
-
-    let expanded = quote! {
+    Ok(quote! {
         #[cfg_attr(test, test)]
         #ignore_attr
         #fn_vis fn #fn_name() {
@@ -214,7 +194,8 @@ pub fn quick_bench(attr: TokenStream, item: TokenStream) -> TokenStream {
                 .with_output_dir(env!("CARGO_MANIFEST_DIR"));
             #fn_body
         }
-    };
-
-    expanded.into()
+    })
 }
+
+#[cfg(test)]
+mod tests;
